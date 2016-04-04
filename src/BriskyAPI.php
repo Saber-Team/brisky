@@ -1,5 +1,7 @@
 <?php
 
+require('BriskyResourceMap.php');
+
 /**
  * Include a CSS or JS static resource by name. This function records a
  * dependency for the current page, so when a response is generated it can be
@@ -9,8 +11,8 @@
  *
  * For more information, see @{article:Adding New CSS and JS}.
  *
- * @param string Name of the celerity module to include. This is whatever you
- *               annotated as "@provides" in the file.
+ * @param {string} $symbol Name of the module to include. This is whatever you
+ *               annotated as "@provides" in the file or auto-generated Ids.
  * @return void
  */
 function require_static_resource($symbol, $source_name = 'phabricator') {
@@ -28,7 +30,7 @@ function require_static_resource($symbol, $source_name = 'phabricator') {
  *                node. It is guaranteed to be unique for the current page, even
  *                if the current request is a subsequent Ajax request.
  */
-function celerity_generate_unique_node_id() {
+function brisky_generate_unique_node_id() {
     static $uniq = 0;
     $response = BriskyAPI::getStaticResourceResponse();
     $block = $response->getMetadataBlock();
