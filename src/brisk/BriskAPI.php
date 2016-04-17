@@ -12,14 +12,14 @@ class BriskAPI {
 
   private static $map;
 
-  const TYPE_CSS = 'CSS';
-  const TYPE_JS = 'JS';
-  const TYPE_PKG = 'pkgs';
+  const TYPE_CSS      = 'CSS';
+  const TYPE_JS       = 'JS';
+  const TYPE_PKG      = 'pkgs';
 
   const ATTRIBUTE_DEP = 'deps';
   const ATTRIBUTE_HAS = 'has';
   const ATTRIBUTE_URI = 'uri';
-  const ATTRIBUTE_IN = 'within';
+  const ATTRIBUTE_IN  = 'within';
 
   // record resource have been loaded.
   // Each type have $symbol->$uri as key-value pairs
@@ -44,7 +44,6 @@ class BriskAPI {
   // Each type is an indexed array
   private static $pageRequireAsync = array();
 
-
   // collect inline script in a widget, indexed array
   private static $widgetScriptPool = array();
   // collect inline style in a widget, indexed array
@@ -59,7 +58,7 @@ class BriskAPI {
   public static $framework = null;
 
   /**
-   * clear all records
+   * clear all resources records current page
    */
   public static function reset() {
     // page

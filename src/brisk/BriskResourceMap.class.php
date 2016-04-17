@@ -61,4 +61,20 @@ final class BriskResourceMap {
     }
   }
 
+  public function getPackageMap() {
+    return $this->packageMap;
+  }
+
+  public function getResMap() {
+    return $this->resMap;
+  }
+
+  public function getJsMap() {
+    return $this->JsSymbolMap;
+  }
+
+  public function getCssMap() {
+    return $this->CssSymbolMap;
+  }
+
 }
