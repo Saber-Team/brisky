@@ -6,6 +6,7 @@ require 'BriskResourceMap.class.php';
  * Created by PhpStorm.
  * @file Interface to collect all static resource of a page or widget.
  *       Can query the resource.map.
+ * @email zmike86@gmail.com
  */
 class BriskAPI {
 
@@ -74,7 +75,7 @@ class BriskAPI {
   /**
    * Get resource map object.
    * @param {string} $namespace
-   * @return {mixed}
+   * @return {BriskResourceMap}
    */
   public static function getMap($namespace = '__global__') {
     return self::$map[$namespace];
