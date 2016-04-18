@@ -25,7 +25,7 @@ final class BriskResourceMap {
     $this->path = $path;
     $this->map = json_decode(file_get_contents($path), true);
     $this->packageMap = $this->map['pkgs'];
-    $this->resMap = $this->map['resources'];
+    $this->resMap = $this->map['resource'];
     $this->JsSymbolMap = $this->resMap['JS'];
     $this->CssSymbolMap = $this->resMap['CSS'];
   }

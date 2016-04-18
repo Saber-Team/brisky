@@ -12,15 +12,12 @@
 
 function smarty_compiler_brisk_cdn($params, $smarty) {
 
-  $php_header = '<?php ';
-  $php_tail = ' ?>';
-
+  $apiPath= preg_replace('/[\\/\\\\]+/', '/', dirname(__FILE__) . '/brisk/api.php');
   $domain = isset($params['domain']) ? $params['domain'] : '';
-  $code   = $php_header;
-  $code  .= 'if (class_exists("BriskPagelet", false)) {';
-  $code  .=   'BriskPagelet::setCDN('.$domain.');';
-  $code  .= '}';
-  $code  .= $php_tail;
+  $code   = '<?php ';
+  $code  .= 'require_once(\'' . $apiPath . '\');';
+  $code  .= 'brisk_set_cdn(\'' . $domain . '\');';
+  $code  .= ' ?>';
 
   return $code;
 }
