@@ -5,10 +5,10 @@ require 'BriskResourceMap.class.php';
 /**
  * Created by PhpStorm.
  * @file Interface to collect all static resource of a page or widget.
- *       Can query the resource.map.
+ *       Can query the resource.json.
  * @email zmike86@gmail.com
  */
-class BriskAPI {
+class BriskResource {
 
   private static $map;
 
@@ -17,6 +17,7 @@ class BriskAPI {
   const TYPE_PKG      = 'pkgs';
 
   const ATTRIBUTE_DEP = 'deps';
+  const ATTRIBUTE_CSS = 'css';
   const ATTRIBUTE_HAS = 'has';
   const ATTRIBUTE_URI = 'uri';
   const ATTRIBUTE_IN  = 'within';
@@ -44,6 +45,7 @@ class BriskAPI {
   // Each type is an indexed array
   private static $pageRequireAsync = array();
 
+
   // collect inline script in a widget, indexed array
   private static $widgetScriptPool = array();
   // collect inline style in a widget, indexed array
@@ -55,10 +57,13 @@ class BriskAPI {
   // whether in a widget
   private static $isInWidget = false;
 
-  public static $framework = null;
+  private static $framework = null;
+
+  // which directory to fetch resource map file
+  private static $mapDir = null;
 
   /**
-   * clear all resources records current page
+   * clear all records
    */
   public static function reset() {
     // page
@@ -74,7 +79,7 @@ class BriskAPI {
   /**
    * Get resource map object.
    * @param {string} $namespace
-   * @return {BriskResourceMap}
+   * @return {mixed}
    */
   public static function getMap($namespace = '__global__') {
     return self::$map[$namespace];
@@ -210,13 +215,28 @@ class BriskAPI {
     }
   }
 
-  // setup framework mod.js
-  public static function setFramework($strFramework) {
-    self::$framework = $strFramework;
+  /**
+   * setup framework javascript library name
+   */
+  public static function setFramework($framework) {
+    self::$framework = $framework;
   }
 
+  /**
+   * get the javascript library name
+   */
   public static function getFramework() {
     return self::$framework;
+  }
+
+  // set where to find resource.json
+  public static function setMapDir($dir) {
+    self::$mapDir = $dir;
+  }
+
+  // get the resource.json directory
+  public static function getMapDir() {
+    return self::$mapDir;
   }
 
   /**
@@ -237,38 +257,45 @@ class BriskAPI {
       self::$pageStaticResource['async'] = self::getAsyncResourceMap(self::$pageRequireAsync);
     }
 
-    unset(self::$pageStaticResource['tpl']);
     return self::$pageStaticResource;
   }
 
   /**
-   * Put all async resources into a resource map object,
+   * Put all async resources into a single map object,
    * will print into current page.
-   * @param {array} $arrAsync
-   * @param {string} $cdn
+   * @param  {array} $arrAsync
+   * @param  {string} $cdn
    * @return {array|string}
    */
   public static function getAsyncResourceMap($arrAsync, $cdn = '') {
     $ret = '';
     $arrResourceMap = array();
 
+    // copy js info
     if (isset($arrAsync[self::TYPE_JS])) {
-      foreach ($arrAsync[self::TYPE_JS] as $symbol => $arrRes) {
+      foreach ($arrAsync[self::TYPE_JS] as $symbol => $res) {
+        // collect resource deps and css
         $deps = array();
-        if (!empty($arrRes[self::ATTRIBUTE_DEP])) {
-          foreach ($arrRes[self::ATTRIBUTE_DEP] as $strName) {
-            if (preg_match('/\.js$/i', $strName)) {
-              $deps[] = $strName;
-            }
+        $css = array();
+
+        if (!empty($res[self::ATTRIBUTE_DEP])) {
+          foreach ($res[self::ATTRIBUTE_DEP] as $symbol) {
+            $deps[] = $symbol;
+          }
+        }
+
+        if (!empty($res[self::ATTRIBUTE_CSS])) {
+          foreach ($res[self::ATTRIBUTE_CSS] as $symbol) {
+            $css[] = $symbol;
           }
         }
 
         $arrResourceMap[self::TYPE_JS][$symbol] = array(
-          'uri' => $cdn . $arrRes[self::ATTRIBUTE_URI],
+          'uri' => $cdn . $res[self::ATTRIBUTE_URI],
         );
 
-        if (!empty($arrRes[self::ATTRIBUTE_IN])) {
-          $arrResourceMap[self::TYPE_JS][$symbol][self::ATTRIBUTE_IN] = $arrRes[self::ATTRIBUTE_IN];
+        if (!empty($res[self::ATTRIBUTE_IN])) {
+          $arrResourceMap[self::TYPE_JS][$symbol][self::ATTRIBUTE_IN] = $res[self::ATTRIBUTE_IN];
           //如果包含到了某一个包，则模块的url是多余的
           //if (!isset($_GET['__debug'])) {
           //  unset($arrResourceMap[self::TYPE_JS][$symbol][self::ATTRIBUTE_URI]);
@@ -278,37 +305,41 @@ class BriskAPI {
         if (!empty($deps)) {
           $arrResourceMap[self::TYPE_JS][$symbol][self::ATTRIBUTE_DEP] = $deps;
         }
+
+        if (!empty($css)) {
+          $arrResourceMap[self::TYPE_JS][$symbol][self::ATTRIBUTE_CSS] = $css;
+        }
       }
     }
 
+    // copy css info
     if (isset($arrAsync[self::TYPE_CSS])) {
-      foreach ($arrAsync[self::TYPE_CSS] as $symbol => $arrRes) {
-        $deps = array();
-        if (!empty($arrRes[self::ATTRIBUTE_DEP])) {
-          foreach ($arrRes[self::ATTRIBUTE_DEP] as $strName) {
-            if (preg_match('/\.css$/i', $strName)) {
-              $deps[] = $strName;
-            }
+      foreach ($arrAsync[self::TYPE_CSS] as $symbol => $res) {
+        $css = array();
+        if (!empty($res[self::ATTRIBUTE_CSS])) {
+          foreach ($res[self::ATTRIBUTE_CSS] as $symbol) {
+            $css[] = $symbol;
           }
         }
 
         $arrResourceMap[self::TYPE_CSS][$symbol] = array(
-          'uri' => $cdn . $arrRes[self::ATTRIBUTE_URI],
+          'uri' => $cdn . $res[self::ATTRIBUTE_URI],
         );
 
-        if (!empty($arrRes[self::ATTRIBUTE_IN])) {
-          $arrResourceMap[self::TYPE_CSS][$symbol][self::ATTRIBUTE_IN] = $arrRes[self::ATTRIBUTE_IN];
+        if (!empty($res[self::ATTRIBUTE_IN])) {
+          $arrResourceMap[self::TYPE_CSS][$symbol][self::ATTRIBUTE_IN] = $res[self::ATTRIBUTE_IN];
         }
 
-        if (!empty($deps)) {
-          $arrResourceMap[self::TYPE_CSS][$symbol][self::ATTRIBUTE_DEP] = $deps;
+        if (!empty($css)) {
+          $arrResourceMap[self::TYPE_CSS][$symbol][self::ATTRIBUTE_DEP] = $css;
         }
       }
     }
 
-    if (isset($arrAsync['pkgs'])) {
-      foreach ($arrAsync['pkgs'] as $symbol => $pkgInfo) {
-        $arrResourceMap['pkgs'][$symbol] = array(
+    // copy pkg info
+    if (isset($arrAsync[self::TYPE_PKG])) {
+      foreach ($arrAsync[self::TYPE_PKG] as $symbol => $pkgInfo) {
+        $arrResourceMap[self::TYPE_PKG][$symbol] = array(
           'uri' => $cdn . $pkgInfo[self::ATTRIBUTE_URI],
           'has' => $pkgInfo[self::ATTRIBUTE_HAS]
         );
@@ -325,10 +356,9 @@ class BriskAPI {
   /**
    * register resource.json as a ResourceMap object
    * @param {string} $namespace
-   * @param $smarty
    * @return {bool}
    */
-  public static function register($namespace = '__global__', $smarty) {
+  public static function register($namespace = '__global__') {
     // resolve resource.json real file path
     if ($namespace === '__global__') {
       $mapName = 'resource';
@@ -337,16 +367,16 @@ class BriskAPI {
     }
 
     // get all likely config directories
-    $configDirs = $smarty->getConfigDir();
-    foreach ($configDirs as $dir) {
-      $path = preg_replace('/[\\/\\\\]+/', '/', $dir . '/' . $mapName . '.json');
-      // only json file support
-      if (is_file($path)) {
-        // register a BriskResourceMap represents resource.json
-        self::$map[$namespace] = new BriskResourceMap($path);
-        return true;
-      }
+    $dir = self::$mapDir;
+    $path = preg_replace('/[\\/\\\\]+/', '/', $dir . '/' . $mapName . '.json');
+
+    // only json file support
+    if (is_file($path)) {
+      // register a BriskResourceMap represents resource.json
+      self::$map[$namespace] = new BriskResourceMap($path);
+      return true;
     }
+
     return false;
   }
 
@@ -354,10 +384,9 @@ class BriskAPI {
    * Specific type and symbol will confirm one resource
    * @param {string} $type
    * @param {string} $symbol
-   * @param {Object} $smarty
    * @return mixed
    */
-  public static function getUri($type, $symbol, $smarty) {
+  public static function getUri($type, $symbol) {
     $pos = strpos($symbol, ':');
     if ($pos === false) {
       $namespace = '__global__';
@@ -365,7 +394,7 @@ class BriskAPI {
       $namespace = substr($symbol, 0, $pos);
     }
 
-    if (isset(self::$map[$namespace]) || self::register($namespace, $smarty)) {
+    if (isset(self::$map[$namespace]) || self::register($namespace)) {
       $map = self::$map[$namespace];
       return $map->getUriBySymbol($type, $symbol);
     }
@@ -377,16 +406,15 @@ class BriskAPI {
    * Load module and all dependency
    * @param {string} $type resource type
    * @param {string} $symbol module id
-   * @param {mixed}  $smarty smarty object
    * @param {bool}   $async  if async module（only JS）
    * @return mixed
    */
-  public static function load($type, $symbol, $smarty, $async = false) {
+  public static function load($type, $symbol, $async = false) {
     // already loaded
     if (isset(self::$loadedResources[$type][$symbol])) {
       //同步组件优先级比异步组件高
       if (!$async && self::getAsync($type, $symbol)) {
-        self::delAsyncDependencies($type, $symbol, $smarty);
+        self::delAsyncDependencies($type, $symbol);
       }
       return self::$loadedResources[$type][$symbol];
     }
@@ -399,7 +427,7 @@ class BriskAPI {
         $namespace = substr($symbol, 0, $pos);
       }
 
-      if (isset(self::$map[$namespace]) || self::register($namespace, $smarty)) {
+      if (isset(self::$map[$namespace]) || self::register($namespace)) {
         $map = &self::$map[$namespace];
         $res = $map->getResourceBySymbol($type, $symbol);
 
@@ -411,7 +439,8 @@ class BriskAPI {
           // production environment
           if (!array_key_exists('__debug', $_GET) && isset($res[self::ATTRIBUTE_IN])) {
             // take first pkg
-            $pkg = &$map['pkgs'][$res[self::ATTRIBUTE_IN][0]];
+            $pkgMap = $map->getPackageMap();
+            $pkg = $pkgMap[$res[self::ATTRIBUTE_IN][0]];
             $uri = $pkg[self::ATTRIBUTE_URI];
 
             // record all resources in the same package
@@ -425,7 +454,7 @@ class BriskAPI {
               $arrHasRes = $map->getResourceBySymbol($type, $resId);
               if ($arrHasRes) {
                 $arrPkgHas[$resId] = $arrHasRes;
-                self::loadDependencies($arrHasRes, $smarty, $async);
+                self::loadDependencies($arrHasRes, $async);
               }
             }
           }
@@ -433,7 +462,7 @@ class BriskAPI {
           else {
             $uri = $res[self::ATTRIBUTE_URI];
             self::$loadedResources[$type][$symbol] = $uri;
-            self::loadDependencies($res, $smarty, $async);
+            self::loadDependencies($res, $async);
           }
 
           // async
@@ -466,22 +495,25 @@ class BriskAPI {
   /**
    * Analyze module dependency
    * @param {array}  $res  module object
-   * @param {Object} $smarty  smarty object
    * @param {bool}   $async
    */
-  private static function loadDependencies($res, $smarty, $async) {
+  private static function loadDependencies($res, $async) {
     if (isset($res[self::ATTRIBUTE_DEP])) {
       foreach ($res[self::ATTRIBUTE_DEP] as $symbol) {
-        $type = self::resolveResourceType($symbol, $smarty);
-        self::load($type, $symbol, $smarty, $async);
+        self::load(self::TYPE_JS, $symbol, $async);
       }
     }
 
-    //require.async
+    if (isset($res[self::ATTRIBUTE_CSS])) {
+      foreach ($res[self::ATTRIBUTE_CSS] as $symbol) {
+        self::load(self::TYPE_CSS, $symbol, $async);
+      }
+    }
+
+    // require.async only js
     if (isset($res['async'])) {
       foreach ($res['async'] as $symbol) {
-        $type = self::resolveResourceType($symbol, $smarty);
-        self::load($type, $symbol, $smarty, true);
+        self::load(self::TYPE_JS, $symbol, true);
       }
     }
   }
@@ -490,10 +522,9 @@ class BriskAPI {
    * 已经分析到的组件在后续被同步使用时在异步组里删除。
    * @param  {string} $type
    * @param  {string} $symbol
-   * @param  {Object} $smarty
    * @return {bool}
    */
-  private static function delAsyncDependencies($type, $symbol, $smarty) {
+  private static function delAsyncDependencies($type, $symbol) {
     // have been deleted
     if (isset(self::$asyncDeleted[$type][$symbol])) {
       return true;
@@ -505,9 +536,16 @@ class BriskAPI {
 
       if ($res[self::ATTRIBUTE_DEP]) {
         foreach ($res[self::ATTRIBUTE_DEP] as $symbol) {
-          $type = self::resolveResourceType($symbol, $smarty);
-          if (self::getAsync($type, $symbol)) {
-            self::delAsyncDependencies($type, $symbol, $smarty);
+          if (self::getAsync(self::TYPE_JS, $symbol)) {
+            self::delAsyncDependencies(self::TYPE_JS, $symbol);
+          }
+        }
+      }
+
+      if ($res[self::ATTRIBUTE_CSS]) {
+        foreach ($res[self::ATTRIBUTE_CSS] as $symbol) {
+          if (self::getAsync(self::TYPE_CSS, $symbol)) {
+            self::delAsyncDependencies(self::TYPE_CSS, $symbol);
           }
         }
       }
@@ -521,9 +559,8 @@ class BriskAPI {
 
           foreach ($pkg[self::ATTRIBUTE_HAS] as $symbol) {
             self::$loadedResources[$type][$symbol] = $pkg[self::ATTRIBUTE_URI];
-            $type = self::resolveResourceType($symbol, $smarty);
             if (self::getAsync($type, $symbol)) {
-              self::delAsyncDependencies($type, $symbol, $smarty);
+              self::delAsyncDependencies($type, $symbol);
             }
           }
         } else {
@@ -537,35 +574,6 @@ class BriskAPI {
         self::delAsync($type, $symbol);
       }
     }
-  }
-
-  /**
-   * return resource type
-   * @param $symbol
-   * @param $smarty
-   * @return null|string
-   */
-  private static function resolveResourceType($symbol, $smarty) {
-    $pos = strpos($symbol, ':');
-    if ($pos === false) {
-      $namespace = '__global__';
-    } else {
-      $namespace = substr($symbol, 0, $pos);
-    }
-
-    if (isset(self::$map[$namespace]) || self::register($namespace, $smarty)) {
-      $map = &self::$map[$namespace];
-      $res = $map->getResourceBySymbol(self::TYPE_JS, $symbol);
-      if ($res) {
-        return self::TYPE_JS;
-      } else if ($map->getResourceBySymbol(self::TYPE_CSS, $symbol)) {
-        return self::TYPE_CSS;
-      }
-
-      return null;
-    }
-
-    return null;
   }
 
   /**
