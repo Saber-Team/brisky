@@ -108,9 +108,9 @@ function brisk_render_response($content) {
 }
 
 function brisk_widget_start($pageletId, $mode, $group) {
-  return BriskPage::start($pageletId, $mode, $group);
+  return BriskPage::widgetStart($pageletId, $mode, $group);
 }
 
 function brisk_widget_end($pageletId) {
-  return BriskPage::end($pageletId);
+  return BriskPage::widgetEnd($pageletId);
 }

@@ -16,11 +16,13 @@ class BriskResource {
   const TYPE_JS       = 'JS';
   const TYPE_PKG      = 'pkgs';
 
-  const ATTRIBUTE_DEP = 'deps';
-  const ATTRIBUTE_CSS = 'css';
-  const ATTRIBUTE_HAS = 'has';
-  const ATTRIBUTE_URI = 'uri';
-  const ATTRIBUTE_IN  = 'within';
+  const ATTR_DEP      = 'deps';
+  const ATTR_CSS      = 'css';
+  const ATTR_HAS      = 'has';
+  const ATTR_URI      = 'uri';
+  const ATTR_ASYNC    = 'async';
+  const ATTR_ASYNCLOADED = 'asyncLoaded';
+  const ATTR_IN       = 'within';
 
   // record resource have been loaded.
   // Each type have $symbol->$uri as key-value pairs
@@ -114,7 +116,7 @@ class BriskResource {
           unset(self::$asyncDeleted[$type][$symbol]);
         }
       }
-      $ret['async'] = self::getAsyncResourceMap(self::$widgetRequireAsync);
+      $ret['asyncLoaded'] = self::getAsyncResourceMap(self::$widgetRequireAsync);
     }
 
     foreach (self::$widgetStaticResource as $type => $val) {
@@ -254,7 +256,7 @@ class BriskResource {
 
     //异步脚本
     if (self::$pageRequireAsync) {
-      self::$pageStaticResource['async'] = self::getAsyncResourceMap(self::$pageRequireAsync);
+      self::$pageStaticResource['asyncLoaded'] = self::getAsyncResourceMap(self::$pageRequireAsync);
     }
 
     return self::$pageStaticResource;
@@ -278,36 +280,36 @@ class BriskResource {
         $deps = array();
         $css = array();
 
-        if (!empty($res[self::ATTRIBUTE_DEP])) {
-          foreach ($res[self::ATTRIBUTE_DEP] as $symbol) {
+        if (!empty($res[self::ATTR_DEP])) {
+          foreach ($res[self::ATTR_DEP] as $symbol) {
             $deps[] = $symbol;
           }
         }
 
-        if (!empty($res[self::ATTRIBUTE_CSS])) {
-          foreach ($res[self::ATTRIBUTE_CSS] as $symbol) {
+        if (!empty($res[self::ATTR_CSS])) {
+          foreach ($res[self::ATTR_CSS] as $symbol) {
             $css[] = $symbol;
           }
         }
 
         $arrResourceMap[self::TYPE_JS][$symbol] = array(
-          'uri' => $cdn . $res[self::ATTRIBUTE_URI],
+          'uri' => $cdn . $res[self::ATTR_URI],
         );
 
-        if (!empty($res[self::ATTRIBUTE_IN])) {
-          $arrResourceMap[self::TYPE_JS][$symbol][self::ATTRIBUTE_IN] = $res[self::ATTRIBUTE_IN];
+        if (!empty($res[self::ATTR_IN])) {
+          $arrResourceMap[self::TYPE_JS][$symbol][self::ATTR_IN] = $res[self::ATTR_IN];
           //如果包含到了某一个包，则模块的url是多余的
           //if (!isset($_GET['__debug'])) {
-          //  unset($arrResourceMap[self::TYPE_JS][$symbol][self::ATTRIBUTE_URI]);
+          //  unset($arrResourceMap[self::TYPE_JS][$symbol][self::ATTR_URI]);
           //}
         }
 
         if (!empty($deps)) {
-          $arrResourceMap[self::TYPE_JS][$symbol][self::ATTRIBUTE_DEP] = $deps;
+          $arrResourceMap[self::TYPE_JS][$symbol][self::ATTR_DEP] = $deps;
         }
 
         if (!empty($css)) {
-          $arrResourceMap[self::TYPE_JS][$symbol][self::ATTRIBUTE_CSS] = $css;
+          $arrResourceMap[self::TYPE_JS][$symbol][self::ATTR_CSS] = $css;
         }
       }
     }
@@ -316,22 +318,22 @@ class BriskResource {
     if (isset($arrAsync[self::TYPE_CSS])) {
       foreach ($arrAsync[self::TYPE_CSS] as $symbol => $res) {
         $css = array();
-        if (!empty($res[self::ATTRIBUTE_CSS])) {
-          foreach ($res[self::ATTRIBUTE_CSS] as $symbol) {
+        if (!empty($res[self::ATTR_CSS])) {
+          foreach ($res[self::ATTR_CSS] as $symbol) {
             $css[] = $symbol;
           }
         }
 
         $arrResourceMap[self::TYPE_CSS][$symbol] = array(
-          'uri' => $cdn . $res[self::ATTRIBUTE_URI],
+          'uri' => $cdn . $res[self::ATTR_URI],
         );
 
-        if (!empty($res[self::ATTRIBUTE_IN])) {
-          $arrResourceMap[self::TYPE_CSS][$symbol][self::ATTRIBUTE_IN] = $res[self::ATTRIBUTE_IN];
+        if (!empty($res[self::ATTR_IN])) {
+          $arrResourceMap[self::TYPE_CSS][$symbol][self::ATTR_IN] = $res[self::ATTR_IN];
         }
 
         if (!empty($css)) {
-          $arrResourceMap[self::TYPE_CSS][$symbol][self::ATTRIBUTE_DEP] = $css;
+          $arrResourceMap[self::TYPE_CSS][$symbol][self::ATTR_DEP] = $css;
         }
       }
     }
@@ -340,8 +342,8 @@ class BriskResource {
     if (isset($arrAsync[self::TYPE_PKG])) {
       foreach ($arrAsync[self::TYPE_PKG] as $symbol => $pkgInfo) {
         $arrResourceMap[self::TYPE_PKG][$symbol] = array(
-          'uri' => $cdn . $pkgInfo[self::ATTRIBUTE_URI],
-          'has' => $pkgInfo[self::ATTRIBUTE_HAS]
+          'uri' => $cdn . $pkgInfo[self::ATTR_URI],
+          'has' => $pkgInfo[self::ATTR_HAS]
         );
       }
     }
@@ -437,20 +439,20 @@ class BriskResource {
 
         if (isset($res)) {
           // production environment
-          if (!array_key_exists('__debug', $_GET) && isset($res[self::ATTRIBUTE_IN])) {
+          if (!array_key_exists('__debug', $_GET) && isset($res[self::ATTR_IN])) {
             // take first pkg
             $pkgMap = $map->getPackageMap();
-            $pkg = $pkgMap[$res[self::ATTRIBUTE_IN][0]];
-            $uri = $pkg[self::ATTRIBUTE_URI];
+            $pkg = $pkgMap[$res[self::ATTR_IN][0]];
+            $uri = $pkg[self::ATTR_URI];
 
             // record all resources in the same package
-            foreach ($pkg[self::ATTRIBUTE_HAS] as $resId) {
+            foreach ($pkg[self::ATTR_HAS] as $resId) {
               self::$loadedResources[$type][$resId] = $uri;
             }
 
             // all included resources in package should also
             // load their dependencies
-            foreach ($pkg[self::ATTRIBUTE_HAS] as $resId) {
+            foreach ($pkg[self::ATTR_HAS] as $resId) {
               $arrHasRes = $map->getResourceBySymbol($type, $resId);
               if ($arrHasRes) {
                 $arrPkgHas[$resId] = $arrHasRes;
@@ -460,7 +462,7 @@ class BriskResource {
           }
           // debug mode
           else {
-            $uri = $res[self::ATTRIBUTE_URI];
+            $uri = $res[self::ATTR_URI];
             self::$loadedResources[$type][$symbol] = $uri;
             self::loadDependencies($res, $async);
           }
@@ -470,7 +472,7 @@ class BriskResource {
           if ($async) {
             // package have the same resource type
             if ($pkg) {
-              self::addAsync(self::TYPE_PKG, $res[self::ATTRIBUTE_IN][0], $pkg);
+              self::addAsync(self::TYPE_PKG, $res[self::ATTR_IN][0], $pkg);
               foreach ($arrPkgHas as $symbol => $res) {
                 self::addAsync($type, $symbol, $res);
               }
@@ -498,21 +500,21 @@ class BriskResource {
    * @param {bool}   $async
    */
   private static function loadDependencies($res, $async) {
-    if (isset($res[self::ATTRIBUTE_DEP])) {
-      foreach ($res[self::ATTRIBUTE_DEP] as $symbol) {
+    if (isset($res[self::ATTR_DEP])) {
+      foreach ($res[self::ATTR_DEP] as $symbol) {
         self::load(self::TYPE_JS, $symbol, $async);
       }
     }
 
-    if (isset($res[self::ATTRIBUTE_CSS])) {
-      foreach ($res[self::ATTRIBUTE_CSS] as $symbol) {
+    if (isset($res[self::ATTR_CSS])) {
+      foreach ($res[self::ATTR_CSS] as $symbol) {
         self::load(self::TYPE_CSS, $symbol, $async);
       }
     }
 
     // require.async only js
-    if (isset($res['async'])) {
-      foreach ($res['async'] as $symbol) {
+    if (isset($res[self::ATTR_ASYNCLOADED])) {
+      foreach ($res[self::ATTR_ASYNCLOADED] as $symbol) {
         self::load(self::TYPE_JS, $symbol, true);
       }
     }
@@ -534,16 +536,16 @@ class BriskResource {
       self::$asyncDeleted[$type][$symbol] = true;
       $res = self::getAsync($type, $symbol);
 
-      if ($res[self::ATTRIBUTE_DEP]) {
-        foreach ($res[self::ATTRIBUTE_DEP] as $symbol) {
+      if ($res[self::ATTR_DEP]) {
+        foreach ($res[self::ATTR_DEP] as $symbol) {
           if (self::getAsync(self::TYPE_JS, $symbol)) {
             self::delAsyncDependencies(self::TYPE_JS, $symbol);
           }
         }
       }
 
-      if ($res[self::ATTRIBUTE_CSS]) {
-        foreach ($res[self::ATTRIBUTE_CSS] as $symbol) {
+      if ($res[self::ATTR_CSS]) {
+        foreach ($res[self::ATTR_CSS] as $symbol) {
           if (self::getAsync(self::TYPE_CSS, $symbol)) {
             self::delAsyncDependencies(self::TYPE_CSS, $symbol);
           }
@@ -551,14 +553,14 @@ class BriskResource {
       }
 
       // packaging
-      if ($res[self::ATTRIBUTE_IN]) {
-        $pkg = self::getAsync(self::TYPE_PKG, $res[self::ATTRIBUTE_IN][0]);
+      if ($res[self::ATTR_IN]) {
+        $pkg = self::getAsync(self::TYPE_PKG, $res[self::ATTR_IN][0]);
         if ($pkg) {
-          self::addStatic($type, $pkg[self::ATTRIBUTE_URI]);
-          self::delAsync(self::TYPE_PKG, $res[self::ATTRIBUTE_IN][0]);
+          self::addStatic($type, $pkg[self::ATTR_URI]);
+          self::delAsync(self::TYPE_PKG, $res[self::ATTR_IN][0]);
 
-          foreach ($pkg[self::ATTRIBUTE_HAS] as $symbol) {
-            self::$loadedResources[$type][$symbol] = $pkg[self::ATTRIBUTE_URI];
+          foreach ($pkg[self::ATTR_HAS] as $symbol) {
+            self::$loadedResources[$type][$symbol] = $pkg[self::ATTR_URI];
             if (self::getAsync($type, $symbol)) {
               self::delAsyncDependencies($type, $symbol);
             }
@@ -569,8 +571,8 @@ class BriskResource {
       } else {
         //已经分析过的并且在其他文件里同步加载的组件，重新收集在同步输出组
         $res = self::getAsync($type, $symbol);
-        self::addStatic($type, $res[self::ATTRIBUTE_URI]);
-        self::$loadedResources[$type][$symbol] = $res[self::ATTRIBUTE_URI];
+        self::addStatic($type, $res[self::ATTR_URI]);
+        self::$loadedResources[$type][$symbol] = $res[self::ATTR_URI];
         self::delAsync($type, $symbol);
       }
     }
