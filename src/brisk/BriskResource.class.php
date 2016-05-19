@@ -14,6 +14,7 @@ class BriskResource {
 
   const TYPE_CSS      = 'CSS';
   const TYPE_JS       = 'JS';
+  const TYPE_TPL      = 'TPL';
   const TYPE_PKG      = 'pkgs';
 
   const ATTR_DEP      = 'deps';
@@ -116,7 +117,7 @@ class BriskResource {
           unset(self::$asyncDeleted[$type][$symbol]);
         }
       }
-      $ret['asyncLoaded'] = self::getAsyncResourceMap(self::$widgetRequireAsync);
+      $ret[self::ATTR_ASYNCLOADED] = self::getAsyncResourceMap(self::$widgetRequireAsync);
     }
 
     foreach (self::$widgetStaticResource as $type => $val) {
@@ -254,9 +255,9 @@ class BriskResource {
       self::$pageStaticResource['style'] = self::$pageStylePool;
     }
 
-    //异步脚本
+    // 异步脚本
     if (self::$pageRequireAsync) {
-      self::$pageStaticResource['asyncLoaded'] = self::getAsyncResourceMap(self::$pageRequireAsync);
+      self::$pageStaticResource[self::ATTR_ASYNCLOADED] = self::getAsyncResourceMap(self::$pageRequireAsync);
     }
 
     return self::$pageStaticResource;
@@ -275,7 +276,7 @@ class BriskResource {
 
     // copy js info
     if (isset($arrAsync[self::TYPE_JS])) {
-      foreach ($arrAsync[self::TYPE_JS] as $symbol => $res) {
+      foreach ($arrAsync[self::TYPE_JS] as $id => $res) {
         // collect resource deps and css
         $deps = array();
         $css = array();
@@ -292,25 +293,19 @@ class BriskResource {
           }
         }
 
-        $arrResourceMap[self::TYPE_JS][$symbol] = array(
-          'uri' => $cdn . $res[self::ATTR_URI],
-        );
-
         if (!empty($res[self::ATTR_IN])) {
-          $arrResourceMap[self::TYPE_JS][$symbol][self::ATTR_IN] = $res[self::ATTR_IN];
+          $arrResourceMap[self::TYPE_JS][$id][self::ATTR_IN] = $res[self::ATTR_IN];
           //如果包含到了某一个包，则模块的url是多余的
           //if (!isset($_GET['__debug'])) {
-          //  unset($arrResourceMap[self::TYPE_JS][$symbol][self::ATTR_URI]);
+          //  unset($arrResourceMap[self::TYPE_JS][$id][self::ATTR_URI]);
           //}
         }
 
-        if (!empty($deps)) {
-          $arrResourceMap[self::TYPE_JS][$symbol][self::ATTR_DEP] = $deps;
-        }
-
-        if (!empty($css)) {
-          $arrResourceMap[self::TYPE_JS][$symbol][self::ATTR_CSS] = $css;
-        }
+        $arrResourceMap[self::TYPE_JS][$id] = array(
+          'uri' => $cdn . $res[self::ATTR_URI]
+        );
+        $arrResourceMap[self::TYPE_JS][$id][self::ATTR_DEP] = $deps;
+        $arrResourceMap[self::TYPE_JS][$id][self::ATTR_CSS] = $css;
       }
     }
 
@@ -324,17 +319,14 @@ class BriskResource {
           }
         }
 
-        $arrResourceMap[self::TYPE_CSS][$symbol] = array(
-          'uri' => $cdn . $res[self::ATTR_URI],
-        );
-
         if (!empty($res[self::ATTR_IN])) {
           $arrResourceMap[self::TYPE_CSS][$symbol][self::ATTR_IN] = $res[self::ATTR_IN];
         }
 
-        if (!empty($css)) {
-          $arrResourceMap[self::TYPE_CSS][$symbol][self::ATTR_DEP] = $css;
-        }
+        $arrResourceMap[self::TYPE_CSS][$symbol] = array(
+          'uri' => $cdn . $res[self::ATTR_URI],
+        );
+        $arrResourceMap[self::TYPE_CSS][$symbol][self::ATTR_DEP] = $css;
       }
     }
 
@@ -405,6 +397,28 @@ class BriskResource {
   }
 
   /**
+   * Specific type and symbol will confirm one resource
+   * @param {string} $type
+   * @param {string} $symbol
+   * @return mixed
+   */
+  public static function getResource($type, $symbol) {
+    $pos = strpos($symbol, ':');
+    if ($pos === false) {
+      $namespace = '__global__';
+    } else {
+      $namespace = substr($symbol, 0, $pos);
+    }
+
+    if (isset(self::$map[$namespace]) || self::register($namespace)) {
+      $map = self::$map[$namespace];
+      return $map->getResourceBySymbol($type, $symbol);
+    }
+
+    return null;
+  }
+
+  /**
    * Load module and all dependency
    * @param {string} $type resource type
    * @param {string} $symbol module id
@@ -412,16 +426,22 @@ class BriskResource {
    * @return mixed
    */
   public static function load($type, $symbol, $async = false) {
-    // already loaded
+    echo 'load when async: <br/>';
+    echo $symbol;
+    echo '<br/>';
+    echo $async;
+    echo '<br/>';
+
+
+    // 已加载
     if (isset(self::$loadedResources[$type][$symbol])) {
-      //同步组件优先级比异步组件高
+      // 同步组件优先级比异步组件高, 若记录在异步加载表中则删除
       if (!$async && self::getAsync($type, $symbol)) {
         self::delAsyncDependencies($type, $symbol);
       }
       return self::$loadedResources[$type][$symbol];
-    }
-    // have not loaded
-    else {
+    // 未加载
+    } else {
       $pos = strpos($symbol, ':');
       if ($pos === false) {
         $namespace = '__global__';
@@ -487,8 +507,7 @@ class BriskResource {
         } else {
           self::triggerError($symbol, 'undefined resource "' . $symbol . '"', E_USER_NOTICE);
         }
-      }
-      else {
+      } else {
         self::triggerError($symbol, 'missing map file of "' . $namespace . '"', E_USER_NOTICE);
       }
     }

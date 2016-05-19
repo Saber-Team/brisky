@@ -20,6 +20,8 @@ final class BriskResourceMap {
   private $JsSymbolMap;
   // css resource info
   private $CssSymbolMap;
+  // tpl resource info
+  private $TplSymbolMap;
 
   public function __construct($path) {
     $this->path = $path;
@@ -28,6 +30,7 @@ final class BriskResourceMap {
     $this->resMap = $this->map['resource'];
     $this->JsSymbolMap = $this->resMap['JS'];
     $this->CssSymbolMap = $this->resMap['CSS'];
+    $this->TplSymbolMap = $this->resMap['TPL'];
   }
 
   /**
@@ -77,4 +80,7 @@ final class BriskResourceMap {
     return $this->CssSymbolMap;
   }
 
+  public function getTplMap() {
+    return $this->TplSymbolMap;
+  }
 }

@@ -124,14 +124,13 @@ class BriskPage {
   
   /**
    * 某一个widget使用那种模式渲染
-   * @var number
    */
   static protected $widgetMode;
 
   /* 保存当前inline script或style的id */
   static $cp;
 
-  /*  */
+  /* 保存当前inline script或style的id数组 */
   static $embeded = array();
   
   /**
@@ -569,17 +568,20 @@ class BriskPage {
    */
   public static function widgetStart($id, $mode = null, $group = null) {
     $hasParent = !empty(self::$context);
+    // widget渲染模式
     if ($mode) {
       $widgetMode = self::parseMode($mode);
     } else {
       $widgetMode = self::$mode;
     }
     
-    // record current pagelet id
+    // 记录当前 pagelet id
     self::$pageletId = $id;
 
     $parent_id = $hasParent ? self::$context['id'] : '';
-    $qk_flag = self::$mode == self::MODE_QUICKLING ? '_qk_' : '';
+    $qk_flag = (self::$mode == self::MODE_QUICKLING ? '_qk_' : '');
+
+    //
     $id = empty($id) ? '__elm_' . $parent_id . '_' . $qk_flag . self::$_session_id ++ : $id;
 
 
@@ -600,7 +602,7 @@ class BriskPage {
     }
 
     if ($widgetMode === self::MODE_NOSCRIPT) {
-      //只有指定pagelet_id的widget才嵌套一层div
+      // 只有指定pagelet_id的widget才嵌套一层div
       if (self::$pageletId) {
         echo '<div id="' . $id . '">';
       }
@@ -617,7 +619,7 @@ class BriskPage {
 
       if (self::$mode == self::MODE_QUICKLING) {
         $hit = self::$filter[$id];
-        //如果父widget被命中，则子widget设置为命中
+        // 如果父widget被命中，则子widget设置为命中
         if ($hasParent && $parent['hit']) {
           $hit = true;
         } else if ($hit) {
@@ -629,7 +631,7 @@ class BriskPage {
         // 渲染模式不是quickling时，可以认为是首次渲染
         if (self::$pageletId && self::$mode != self::MODE_QUICKLING) {
           if (!$group) {
-            echo '<textarea class="g_fis_bigrender" style="display:none;">'
+            echo '<textarea class="g_bigrender" style="display:none;">'
               .'BigPipe.asyncLoad({id: "'.$id.'"});'
               .'</textarea>';
           } else {
@@ -692,7 +694,7 @@ class BriskPage {
           if ($widgetMode == self::MODE_BIGRENDER) {
             $widget_style = $widget['style'];
             $widget_script = $widget['script'];
-            //内联css和script放到注释里面, 不需要收集
+            // 内联css和script放到注释里面, 不需要收集
             unset($widget['style']);
             unset($widget['script']);
 
@@ -715,15 +717,15 @@ class BriskPage {
 
             echo '--></code></div>';
 
-            //收集外链的js和css
+            // 收集外链的js和css
             self::$inner_widget[self::$mode][] = $widget;
 
           } else {
             $context['html'] = $html;
-            //删除不需要的信息
+            // 删除不需要的信息
             unset($context['mode']);
             unset($context['hit']);
-            //not parent
+            // not parent
             unset($context['parent_id']);
             self::$pageLets[] = $context;
             self::$inner_widget[$widgetMode][] = $widget;
@@ -734,7 +736,7 @@ class BriskPage {
             echo $html;
           } else {
             $context['html'] = $html;
-            //删除不需要的信息
+            // 删除不需要的信息
             unset($context['mode']);
             unset($context['hit']);
             self::$pageLets[] = $context;

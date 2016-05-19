@@ -89,13 +89,13 @@ function brisk_require_css($symbol, $async = 'false') {
 }
 
 /**
- * According to type and symbol get url
+ * 根据资源类型和唯一名确定资源
  * @param {string} $type
  * @param {string} $symbol
  * @return mixed
  */
-function brisk_get_resource_uri($type, $symbol) {
-  return BriskResource::getUri($type, $symbol);
+function brisk_get_resource($type, $symbol) {
+  return BriskResource::getResource($type, $symbol);
 }
 
 /**
@@ -107,6 +107,13 @@ function brisk_render_response($content) {
   return BriskPage::render($content);
 }
 
+/**
+ * 
+ * @param {string} $pageletId
+ * @param {?string} $mode
+ * @param {?string} $group
+ * @return {bool}
+ */
 function brisk_widget_start($pageletId, $mode, $group) {
   return BriskPage::widgetStart($pageletId, $mode, $group);
 }
