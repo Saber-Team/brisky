@@ -1,15 +1,14 @@
 <?php
 
 /**
- * Created by PhpStorm.
- * @file Resource Map Class
- * @email zmike86@gmail.com
+ * @file 资源表类
+ * @author AceMood
  */
 final class BriskResourceMap {
 
   // resource map array
   private $map;
-  // store the file path of resource.map file
+  // store the file path of resource.json file
   private $path;
 
   // package info of map
@@ -31,6 +30,13 @@ final class BriskResourceMap {
     $this->JsSymbolMap = $this->resMap['JS'];
     $this->CssSymbolMap = $this->resMap['CSS'];
     $this->TplSymbolMap = $this->resMap['TPL'];
+  }
+
+  /**
+   * @return mixed
+   */
+  public function getFilePath() {
+    return $this->path;
   }
 
   /**

@@ -1,7 +1,8 @@
 <?php
 
-require "BriskResource.class.php";
-require "BriskPage.class.php";
+require_once('BriskResourceCollector.php');
+require_once('BriskPage.php');
+require_once('BriskConfig.php');
 
 /**
  * 页面初始化.
@@ -11,9 +12,9 @@ require "BriskPage.class.php";
  * @return void
  */
 function brisk_page_init($framework = null, $mode = null) {
-  // load framework js library
+  // 加载基础库
   if (isset($framework)) {
-    BriskResource::setFramework(BriskResource::load(BriskResource::TYPE_JS, $framework));
+    BriskResourceCollector::setFramework(BriskResourceCollector::load(BriskConfig::TYPE_JS, $framework));
   }
   BriskPage::init($mode);
 }
@@ -22,7 +23,7 @@ function brisk_page_init($framework = null, $mode = null) {
  * 设置资源表文件(默认是resource.json)所在目录, 和smarty方案共用时默认是configDir
  */
 function brisk_set_map_dir($dir) {
-  BriskResource::setMapDir($dir);
+  BriskResourceCollector::setMapDir($dir);
 }
 
 /**
@@ -30,7 +31,7 @@ function brisk_set_map_dir($dir) {
  * @return {string}
  */
 function brisk_get_map_dir() {
-  return BriskResource::getMapDir();
+  return BriskResourceCollector::getMapDir();
 }
 
 /**
@@ -64,7 +65,7 @@ function brisk_get_cdn() {
 function brisk_require_js($symbol, $async = 'false') {
   $async = trim($async, '\'\" ');
   if ($symbol) {
-    BriskPage::load(BriskResource::TYPE_JS, $symbol, $async);
+    BriskPage::load(BriskConfig::TYPE_JS, $symbol, $async);
   }
 }
 
@@ -84,7 +85,7 @@ function brisk_require_js($symbol, $async = 'false') {
 function brisk_require_css($symbol, $async = 'false') {
   $async = trim($async, '\'\" ');
   if ($symbol) {
-    BriskPage::load(BriskResource::TYPE_CSS, $symbol, $async);
+    BriskPage::load(BriskConfig::TYPE_CSS, $symbol, $async);
   }
 }
 
@@ -95,7 +96,7 @@ function brisk_require_css($symbol, $async = 'false') {
  * @return mixed
  */
 function brisk_get_resource($type, $symbol) {
-  return BriskResource::getResource($type, $symbol);
+  return BriskResourceCollector::getResource($type, $symbol);
 }
 
 /**

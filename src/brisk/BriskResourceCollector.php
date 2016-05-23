@@ -1,36 +1,36 @@
 <?php
 
-require 'BriskResourceMap.class.php';
+require_once('BriskResourceMap.php');
+require_once('BriskConfig.php');
+
 
 /**
- * Created by PhpStorm.
- * @file Interface to collect all static resource of a page or widget.
- *       Can query the resource.json.
- * @email zmike86@gmail.com
+ * @file 资源收集器, 提供了记录和查询资源的接口.
+ * @author AceMood
  */
-class BriskResource {
+
+class BriskResourceCollector {
 
   private static $map;
 
-  const TYPE_CSS      = 'CSS';
-  const TYPE_JS       = 'JS';
-  const TYPE_TPL      = 'TPL';
-  const TYPE_PKG      = 'pkgs';
-
-  const ATTR_DEP      = 'deps';
-  const ATTR_CSS      = 'css';
-  const ATTR_HAS      = 'has';
-  const ATTR_URI      = 'uri';
-  const ATTR_ASYNC    = 'async';
-  const ATTR_ASYNCLOADED = 'asyncLoaded';
-  const ATTR_IN       = 'within';
-
-  // record resource have been loaded.
-  // Each type have $symbol->$uri as key-value pairs
+  // 记录页面收集的资源.
+  // 格式: $symbol->$uri as key-value pairs
+  // JS: {
+  //   a: '/static/a.js'
+  // },
+  // CSS: {
+  //   a: '/static/a.css'
+  // }
   private static $loadedResources = array();
 
-  // record all async resources have been deleted due to sync.
-  // Each type have $symbol->$uri as key-value pairs
+  // 记录: 由于分析到了有同步引入而删除的之前异步引入的资源
+  // 格式:
+  // JS: {
+  //   a: true
+  // },
+  // CSS: {
+  //   a: true
+  // }
   private static $asyncDeleted = array();
 
   // array(
@@ -38,36 +38,46 @@ class BriskResource {
   //   CSS: array(),
   //   script: array(),
   //   style: array(),
-  //   async: array()
+  //   asyncLoaded: array(
+  //     JS: array(),
+  //     CSS: array(),
+  //     script: array(),
+  //     style: array(),
+  //   )
   // )
   private static $pageStaticResource = array();
+
   // collect inline script in a page, indexed array
   private static $pageScriptPool = array();
+
   // collect inline style in a page, indexed array
   private static $pageStylePool = array();
+
   // Each type is an indexed array
   private static $pageRequireAsync = array();
 
-
   // collect inline script in a widget, indexed array
   private static $widgetScriptPool = array();
+
   // collect inline style in a widget, indexed array
   private static $widgetStylePool = array();
+
   // collect external script and link in a widget
   private static $widgetStaticResource = array();
+
   // collect async script in a widget
   private static $widgetRequireAsync = array();
+
   // whether in a widget
   private static $isInWidget = false;
 
+  // 记录用到的框架, 通常是模块加载器的moduleId
   private static $framework = null;
 
-  // which directory to fetch resource map file
+  // resource.json存放的目录位置
   private static $mapDir = null;
 
-  /**
-   * clear all records
-   */
+  // 重置收集的数据
   public static function reset() {
     // page
     self::$pageStaticResource = array();
@@ -80,7 +90,7 @@ class BriskResource {
   }
 
   /**
-   * Get resource map object.
+   * 返回资源表对象
    * @param {string} $namespace
    * @return {mixed}
    */
@@ -117,24 +127,22 @@ class BriskResource {
           unset(self::$asyncDeleted[$type][$symbol]);
         }
       }
-      $ret[self::ATTR_ASYNCLOADED] = self::getAsyncResourceMap(self::$widgetRequireAsync);
+      $ret[BriskConfig::ATTR_ASYNCLOADED] = self::getAsyncResourceMap(self::$widgetRequireAsync);
     }
 
     foreach (self::$widgetStaticResource as $type => $val) {
-      foreach ($val as $uri) {
-        foreach (array_keys(self::$loadedResources[$type], $uri) as $symbol) {
-          unset(self::$loadedResources[$type][$symbol]);
-          unset(self::$asyncDeleted[$type][$symbol]);
-        }
+      foreach ($val as $symbol => $info) {
+        unset(self::$loadedResources[$type][$symbol]);
+        unset(self::$asyncDeleted[$type][$symbol]);
       }
     }
     //}}}
 
-    if (self::$widgetStaticResource[self::TYPE_JS]) {
-      $ret[self::TYPE_JS] = self::$widgetStaticResource[self::TYPE_JS];
+    if (self::$widgetStaticResource[BriskConfig::TYPE_JS]) {
+      $ret[BriskConfig::TYPE_JS] = self::$widgetStaticResource[BriskConfig::TYPE_JS];
     }
-    if (self::$widgetStaticResource[self::TYPE_CSS]) {
-      $ret[self::TYPE_CSS] = self::$widgetStaticResource[self::TYPE_CSS];
+    if (self::$widgetStaticResource[BriskConfig::TYPE_CSS]) {
+      $ret[BriskConfig::TYPE_CSS] = self::$widgetStaticResource[BriskConfig::TYPE_CSS];
     }
     if (self::$widgetScriptPool) {
       $ret['script'] = self::$widgetScriptPool;
@@ -147,22 +155,19 @@ class BriskResource {
   }
 
   /**
-   * add a static resource
+   * 把一个资源添加到当前请求的同步资源记录里面. 这个结构应该具有顺序
    * @param {string} $type
-   * @param {string} $uri
+   * @param {string} $symbol
    */
-  public static function addStatic($type, $uri) {
+  public static function addStatic($type, $symbol) {
     if (self::$isInWidget) {
-      self::$widgetStaticResource[$type][] = $uri;
+      self::$widgetStaticResource[$type][] = $symbol;
     } else {
-      self::$pageStaticResource[$type][] = $uri;
+      self::$pageStaticResource[$type][] = $symbol;
     }
   }
 
-  /**
-   * collect inline script code
-   * @param {string} $code
-   */
+  // 收集行内javascript代码
   public static function addScript($code) {
     if (self::$isInWidget) {
       self::$widgetScriptPool[] = $code;
@@ -171,10 +176,7 @@ class BriskResource {
     }
   }
 
-  /**
-   * collect inline style code
-   * @param {string} $code
-   */
+  // 收集行内内嵌css代码
   public static function addStyle($code) {
     if (!self::$isInWidget) {
       self::$pageStylePool[] = $code;
@@ -184,9 +186,10 @@ class BriskResource {
   }
 
   /**
-   * @param $type
-   * @param $symbol
-   * @param $info
+   * 添加一个页面异步引用的资源, 存放的结构可以不关心插入的顺序, 记录会被打印到页面中
+   * @param {string} $type
+   * @param {string} $symbol
+   * @param {array} $info
    */
   public static function addAsync($type, $symbol, $info) {
     if (self::$isInWidget) {
@@ -196,6 +199,11 @@ class BriskResource {
     }
   }
 
+  /**
+   * 删除一条页面异步引用的记录
+   * @param {string} $type
+   * @param {string} $symbol
+   */
   public static function delAsync($type, $symbol) {
     if (self::$isInWidget) {
       unset(self::$widgetRequireAsync[$type][$symbol]);
@@ -205,7 +213,7 @@ class BriskResource {
   }
 
   /**
-   * Get async load module if exists
+   * 查询一条页面异步引用的记录
    * @param $type
    * @param $symbol
    * @return mixed
@@ -218,33 +226,29 @@ class BriskResource {
     }
   }
 
-  /**
-   * setup framework javascript library name
-   */
+  // 设置模块加载器框架
   public static function setFramework($framework) {
     self::$framework = $framework;
   }
 
-  /**
-   * get the javascript library name
-   */
+  // 获取模块加载器框架
   public static function getFramework() {
     return self::$framework;
   }
 
-  // set where to find resource.json
+  // 设置资源表描述文件所在目录
   public static function setMapDir($dir) {
     self::$mapDir = $dir;
   }
 
-  // get the resource.json directory
+  // 返回资源表描述文件所在目录
   public static function getMapDir() {
     return self::$mapDir;
   }
 
   /**
-   * Get all page required resources.
-   * @return array
+   * 返回应在当前请求中打印的资源表部分.
+   * @return {array}
    */
   public static function getPageStaticResource() {
     if (self::$pageScriptPool) {
@@ -257,86 +261,130 @@ class BriskResource {
 
     // 异步脚本
     if (self::$pageRequireAsync) {
-      self::$pageStaticResource[self::ATTR_ASYNCLOADED] = self::getAsyncResourceMap(self::$pageRequireAsync);
+      self::$pageStaticResource[BriskConfig::ATTR_ASYNCLOADED] = self::getAsyncResourceMap(self::$pageRequireAsync);
     }
 
     return self::$pageStaticResource;
   }
 
   /**
-   * Put all async resources into a single map object,
-   * will print into current page.
-   * @param  {array} $arrAsync
-   * @param  {string} $cdn
+   * 对本次请求所有的异步加载资源整合到一个对象中一并返回给调用者
+   * @param  {array} $arrAsync 本次请求所有的异步加载资源
+   * @param  {string} $cdn cdn域名
    * @return {array|string}
    */
   public static function getAsyncResourceMap($arrAsync, $cdn = '') {
     $ret = '';
     $arrResourceMap = array();
+    
+//    var_dump(self::$pageStaticResource);
+//    echo '<br>';
+//    echo '<br>';
+//
+//    var_dump($arrAsync);
+//    echo '<br>';
 
-    // copy js info
-    if (isset($arrAsync[self::TYPE_JS])) {
-      foreach ($arrAsync[self::TYPE_JS] as $id => $res) {
-        // collect resource deps and css
+
+    // js结构
+    if (isset($arrAsync[BriskConfig::TYPE_JS])) {
+      foreach ($arrAsync[BriskConfig::TYPE_JS] as $id => $res) {
         $deps = array();
         $css = array();
 
-        if (!empty($res[self::ATTR_DEP])) {
-          foreach ($res[self::ATTR_DEP] as $symbol) {
-            $deps[] = $symbol;
+        if (!empty($res[BriskConfig::ATTR_DEP])) {
+          foreach ($res[BriskConfig::ATTR_DEP] as $symbol) {
+            $inPkg = false;
+            // 已加载的资源 需要动态删除
+            if (in_array($symbol, self::$pageStaticResource[BriskConfig::TYPE_JS])) {
+              continue;
+            }
+
+            // 若依赖的模块已经在打包中
+            $dep = self::getResource(BriskConfig::TYPE_JS, $symbol);
+            if (isset($dep[BriskConfig::ATTR_IN])) {
+              $pkgId = $dep[BriskConfig::ATTR_IN][0];
+              if (in_array($pkgId, self::$pageStaticResource[BriskConfig::TYPE_JS])) {
+                continue;
+              }
+              $inPkg = true;
+            }
+
+            $deps[] = ($inPkg ? $pkgId : $symbol);
           }
         }
 
-        if (!empty($res[self::ATTR_CSS])) {
-          foreach ($res[self::ATTR_CSS] as $symbol) {
-            $css[] = $symbol;
+        if (!empty($res[BriskConfig::ATTR_CSS])) {
+          foreach ($res[BriskConfig::ATTR_CSS] as $symbol) {
+            $inPkg = false;
+            // 已加载
+            if (in_array($symbol, self::$pageStaticResource[BriskConfig::TYPE_CSS])) {
+              continue;
+            }
+
+            // 若依赖的模块已经在打包中
+            $dep = self::getResource(BriskConfig::TYPE_CSS, $symbol);
+            if (isset($dep[BriskConfig::ATTR_IN])) {
+              $pkgId = $dep[BriskConfig::ATTR_IN][0];
+              if (in_array($pkgId, self::$pageStaticResource[BriskConfig::TYPE_CSS])) {
+                continue;
+              }
+              $inPkg = true;
+            }
+
+            $css[] = ($inPkg ? $pkgId : $symbol);
           }
         }
 
-        if (!empty($res[self::ATTR_IN])) {
-          $arrResourceMap[self::TYPE_JS][$id][self::ATTR_IN] = $res[self::ATTR_IN];
+        if (!empty($res[BriskConfig::ATTR_IN])) {
+          $arrResourceMap[BriskConfig::TYPE_JS][$id][BriskConfig::ATTR_IN] = $res[BriskConfig::ATTR_IN];
           //如果包含到了某一个包，则模块的url是多余的
           //if (!isset($_GET['__debug'])) {
-          //  unset($arrResourceMap[self::TYPE_JS][$id][self::ATTR_URI]);
+          //  unset($arrResourceMap[BriskConfig::TYPE_JS][$id][BriskConfig::ATTR_URI]);
           //}
         }
 
-        $arrResourceMap[self::TYPE_JS][$id] = array(
-          'uri' => $cdn . $res[self::ATTR_URI]
+        $arrResourceMap[BriskConfig::TYPE_JS][$id] = array(
+          'uri' => $cdn . $res[BriskConfig::ATTR_URI]
         );
-        $arrResourceMap[self::TYPE_JS][$id][self::ATTR_DEP] = $deps;
-        $arrResourceMap[self::TYPE_JS][$id][self::ATTR_CSS] = $css;
+        $arrResourceMap[BriskConfig::TYPE_JS][$id][BriskConfig::ATTR_DEP] = $deps;
+        $arrResourceMap[BriskConfig::TYPE_JS][$id][BriskConfig::ATTR_CSS] = $css;
       }
     }
 
-    // copy css info
-    if (isset($arrAsync[self::TYPE_CSS])) {
-      foreach ($arrAsync[self::TYPE_CSS] as $symbol => $res) {
+    // css结构
+    if (isset($arrAsync[BriskConfig::TYPE_CSS])) {
+      foreach ($arrAsync[BriskConfig::TYPE_CSS] as $symbol => $res) {
         $css = array();
-        if (!empty($res[self::ATTR_CSS])) {
-          foreach ($res[self::ATTR_CSS] as $symbol) {
-            $css[] = $symbol;
+        if (!empty($res[BriskConfig::ATTR_CSS])) {
+          foreach ($res[BriskConfig::ATTR_CSS] as $symbol) {
+            $inPkg = false;
+            // 已加载
+            if (in_array($symbol, self::$pageStaticResource[BriskConfig::TYPE_CSS])) {
+              continue;
+            }
+
+            // 若依赖的模块已经在打包中
+            $dep = self::getResource(BriskConfig::TYPE_CSS, $symbol);
+            if (isset($dep[BriskConfig::ATTR_IN])) {
+              $pkgId = $dep[BriskConfig::ATTR_IN][0];
+              if (in_array($pkgId, self::$pageStaticResource[BriskConfig::TYPE_CSS])) {
+                continue;
+              }
+              $inPkg = true;
+            }
+
+            $css[] = ($inPkg ? $pkgId : $symbol);
           }
         }
 
-        if (!empty($res[self::ATTR_IN])) {
-          $arrResourceMap[self::TYPE_CSS][$symbol][self::ATTR_IN] = $res[self::ATTR_IN];
+        if (!empty($res[BriskConfig::ATTR_IN])) {
+          $arrResourceMap[BriskConfig::TYPE_CSS][$symbol][BriskConfig::ATTR_IN] = $res[BriskConfig::ATTR_IN];
         }
 
-        $arrResourceMap[self::TYPE_CSS][$symbol] = array(
-          'uri' => $cdn . $res[self::ATTR_URI],
+        $arrResourceMap[BriskConfig::TYPE_CSS][$symbol] = array(
+          'uri' => $cdn . $res[BriskConfig::ATTR_URI],
         );
-        $arrResourceMap[self::TYPE_CSS][$symbol][self::ATTR_DEP] = $css;
-      }
-    }
-
-    // copy pkg info
-    if (isset($arrAsync[self::TYPE_PKG])) {
-      foreach ($arrAsync[self::TYPE_PKG] as $symbol => $pkgInfo) {
-        $arrResourceMap[self::TYPE_PKG][$symbol] = array(
-          'uri' => $cdn . $pkgInfo[self::ATTR_URI],
-          'has' => $pkgInfo[self::ATTR_HAS]
-        );
+        $arrResourceMap[BriskConfig::TYPE_CSS][$symbol][BriskConfig::ATTR_CSS] = $css;
       }
     }
 
@@ -353,7 +401,6 @@ class BriskResource {
    * @return {bool}
    */
   public static function register($namespace = '__global__') {
-    // resolve resource.json real file path
     if ($namespace === '__global__') {
       $mapName = 'resource';
     } else {
@@ -364,7 +411,7 @@ class BriskResource {
     $dir = self::$mapDir;
     $path = preg_replace('/[\\/\\\\]+/', '/', $dir . '/' . $mapName . '.json');
 
-    // only json file support
+    // 只支持json文件
     if (is_file($path)) {
       // register a BriskResourceMap represents resource.json
       self::$map[$namespace] = new BriskResourceMap($path);
@@ -375,29 +422,7 @@ class BriskResource {
   }
 
   /**
-   * Specific type and symbol will confirm one resource
-   * @param {string} $type
-   * @param {string} $symbol
-   * @return mixed
-   */
-  public static function getUri($type, $symbol) {
-    $pos = strpos($symbol, ':');
-    if ($pos === false) {
-      $namespace = '__global__';
-    } else {
-      $namespace = substr($symbol, 0, $pos);
-    }
-
-    if (isset(self::$map[$namespace]) || self::register($namespace)) {
-      $map = self::$map[$namespace];
-      return $map->getUriBySymbol($type, $symbol);
-    }
-
-    return '';
-  }
-
-  /**
-   * Specific type and symbol will confirm one resource
+   * 根据类型和id确定唯一的资源对象
    * @param {string} $type
    * @param {string} $symbol
    * @return mixed
@@ -419,20 +444,35 @@ class BriskResource {
   }
 
   /**
-   * Load module and all dependency
-   * @param {string} $type resource type
-   * @param {string} $symbol module id
-   * @param {bool}   $async  if async module（only JS）
+   * 根据类型和id确定唯一的打包对象
+   * @param {string} $symbol
+   * @return mixed
+   */
+  public static function getPackage($symbol) {
+    $pos = strpos($symbol, ':');
+    if ($pos === false) {
+      $namespace = '__global__';
+    } else {
+      $namespace = substr($symbol, 0, $pos);
+    }
+
+    if (isset(self::$map[$namespace]) || self::register($namespace)) {
+      $map = self::$map[$namespace];
+      $pkgMap = $map->getPackageMap();
+      return $pkgMap ? $pkgMap[$symbol] : null;
+    }
+
+    return null;
+  }
+
+  /**
+   * 记录加载一个资源.
+   * @param {string} $type 资源类型
+   * @param {string} $symbol 资源id
+   * @param {bool}   $async  资源是否异步加载
    * @return mixed
    */
   public static function load($type, $symbol, $async = false) {
-    echo 'load when async: <br/>';
-    echo $symbol;
-    echo '<br/>';
-    echo $async;
-    echo '<br/>';
-
-
     // 已加载
     if (isset(self::$loadedResources[$type][$symbol])) {
       // 同步组件优先级比异步组件高, 若记录在异步加载表中则删除
@@ -440,6 +480,7 @@ class BriskResource {
         self::delAsyncDependencies($type, $symbol);
       }
       return self::$loadedResources[$type][$symbol];
+
     // 未加载
     } else {
       $pos = strpos($symbol, ':');
@@ -458,41 +499,36 @@ class BriskResource {
         $arrPkgHas = array();
 
         if (isset($res)) {
-          // production environment
-          if (!array_key_exists('__debug', $_GET) && isset($res[self::ATTR_IN])) {
-            // take first pkg
+          // 生产环境
+          if (!array_key_exists('__debug', $_GET) && isset($res[BriskConfig::ATTR_IN])) {
             $pkgMap = $map->getPackageMap();
-            $pkg = $pkgMap[$res[self::ATTR_IN][0]];
-            $uri = $pkg[self::ATTR_URI];
+            $pkg = $pkgMap[$res[BriskConfig::ATTR_IN][0]];
+            $uri = $pkg[BriskConfig::ATTR_URI];
 
-            // record all resources in the same package
-            foreach ($pkg[self::ATTR_HAS] as $resId) {
+            // 将包里所有资源的uri设置成包文件的线上地址
+            foreach ($pkg[BriskConfig::ATTR_HAS] as $resId) {
               self::$loadedResources[$type][$resId] = $uri;
             }
 
-            // all included resources in package should also
-            // load their dependencies
-            foreach ($pkg[self::ATTR_HAS] as $resId) {
+            // 同一个package里面的所有资源也须加载其各自的依赖项
+            foreach ($pkg[BriskConfig::ATTR_HAS] as $resId) {
               $arrHasRes = $map->getResourceBySymbol($type, $resId);
               if ($arrHasRes) {
                 $arrPkgHas[$resId] = $arrHasRes;
                 self::loadDependencies($arrHasRes, $async);
               }
             }
-          }
-          // debug mode
-          else {
-            $uri = $res[self::ATTR_URI];
+          } else {
+            $uri = $res[BriskConfig::ATTR_URI];
             self::$loadedResources[$type][$symbol] = $uri;
             self::loadDependencies($res, $async);
           }
 
-          // async
-          //if ($async && $res['type'] === self::TYPE_JS) {
+          //if ($async && $res['type'] === BriskConfig::TYPE_JS) {
           if ($async) {
             // package have the same resource type
             if ($pkg) {
-              self::addAsync(self::TYPE_PKG, $res[self::ATTR_IN][0], $pkg);
+              self::addAsync($type, $res[BriskConfig::ATTR_IN][0], $pkg);
               foreach ($arrPkgHas as $symbol => $res) {
                 self::addAsync($type, $symbol, $res);
               }
@@ -500,7 +536,12 @@ class BriskResource {
               self::addAsync($type, $symbol, $res);
             }
           } else {
-            self::addStatic($type, $uri);
+            if ($pkg) {
+              // 记录已包含的package信息, 资源类型直接选择与单个资源一致即可
+              self::addStatic($type, $res[BriskConfig::ATTR_IN][0]);
+            } else {
+              self::addStatic($type, $symbol);
+            }
           }
 
           return $uri;
@@ -514,33 +555,33 @@ class BriskResource {
   }
 
   /**
-   * Analyze module dependency
-   * @param {array}  $res  module object
-   * @param {bool}   $async
+   * 加载一个资源的依赖资源
+   * @param {array} $res
+   * @param {bool}  $async
    */
   private static function loadDependencies($res, $async) {
-    if (isset($res[self::ATTR_DEP])) {
-      foreach ($res[self::ATTR_DEP] as $symbol) {
-        self::load(self::TYPE_JS, $symbol, $async);
+    if (isset($res[BriskConfig::ATTR_DEP])) {
+      foreach ($res[BriskConfig::ATTR_DEP] as $symbol) {
+        self::load(BriskConfig::TYPE_JS, $symbol, $async);
       }
     }
 
-    if (isset($res[self::ATTR_CSS])) {
-      foreach ($res[self::ATTR_CSS] as $symbol) {
-        self::load(self::TYPE_CSS, $symbol, $async);
+    if (isset($res[BriskConfig::ATTR_CSS])) {
+      foreach ($res[BriskConfig::ATTR_CSS] as $symbol) {
+        self::load(BriskConfig::TYPE_CSS, $symbol, $async);
       }
     }
 
     // require.async only js
-    if (isset($res[self::ATTR_ASYNCLOADED])) {
-      foreach ($res[self::ATTR_ASYNCLOADED] as $symbol) {
-        self::load(self::TYPE_JS, $symbol, true);
+    if (isset($res[BriskConfig::ATTR_ASYNCLOADED])) {
+      foreach ($res[BriskConfig::ATTR_ASYNCLOADED] as $symbol) {
+        self::load(BriskConfig::TYPE_JS, $symbol, true);
       }
     }
   }
 
   /**
-   * 已经分析到的组件在后续被同步使用时在异步组里删除。
+   * 已经分析到的组件在后续被同步使用时, 在异步记录里删除。
    * @param  {string} $type
    * @param  {string} $symbol
    * @return {bool}
@@ -549,37 +590,36 @@ class BriskResource {
     // have been deleted
     if (isset(self::$asyncDeleted[$type][$symbol])) {
       return true;
-    }
-    // have not been deleted
-    else {
+    } else {
       self::$asyncDeleted[$type][$symbol] = true;
       $res = self::getAsync($type, $symbol);
 
-      if ($res[self::ATTR_DEP]) {
-        foreach ($res[self::ATTR_DEP] as $symbol) {
-          if (self::getAsync(self::TYPE_JS, $symbol)) {
-            self::delAsyncDependencies(self::TYPE_JS, $symbol);
+      // 当前资源异步引入的资源需要删除记录
+      if ($res[BriskConfig::ATTR_DEP]) {
+        foreach ($res[BriskConfig::ATTR_DEP] as $symbol) {
+          if (self::getAsync(BriskConfig::TYPE_JS, $symbol)) {
+            self::delAsyncDependencies(BriskConfig::TYPE_JS, $symbol);
           }
         }
       }
 
-      if ($res[self::ATTR_CSS]) {
-        foreach ($res[self::ATTR_CSS] as $symbol) {
-          if (self::getAsync(self::TYPE_CSS, $symbol)) {
-            self::delAsyncDependencies(self::TYPE_CSS, $symbol);
+      if ($res[BriskConfig::ATTR_CSS]) {
+        foreach ($res[BriskConfig::ATTR_CSS] as $symbol) {
+          if (self::getAsync(BriskConfig::TYPE_CSS, $symbol)) {
+            self::delAsyncDependencies(BriskConfig::TYPE_CSS, $symbol);
           }
         }
       }
 
       // packaging
-      if ($res[self::ATTR_IN]) {
-        $pkg = self::getAsync(self::TYPE_PKG, $res[self::ATTR_IN][0]);
+      if ($res[BriskConfig::ATTR_IN]) {
+        $pkg = self::getAsync($type, $res[BriskConfig::ATTR_IN][0]);
         if ($pkg) {
-          self::addStatic($type, $pkg[self::ATTR_URI]);
-          self::delAsync(self::TYPE_PKG, $res[self::ATTR_IN][0]);
+          self::addStatic($type, $res[BriskConfig::ATTR_IN][0]);
+          self::delAsync($type, $res[BriskConfig::ATTR_IN][0]);
 
-          foreach ($pkg[self::ATTR_HAS] as $symbol) {
-            self::$loadedResources[$type][$symbol] = $pkg[self::ATTR_URI];
+          foreach ($pkg[BriskConfig::ATTR_HAS] as $symbol) {
+            self::$loadedResources[$type][$symbol] = $pkg[BriskConfig::ATTR_URI];
             if (self::getAsync($type, $symbol)) {
               self::delAsyncDependencies($type, $symbol);
             }
@@ -588,10 +628,10 @@ class BriskResource {
           self::delAsync($type, $symbol);
         }
       } else {
-        //已经分析过的并且在其他文件里同步加载的组件，重新收集在同步输出组
+        // 已经分析过的并且在其他文件里同步加载的组件, 重新收集在同步输出组
         $res = self::getAsync($type, $symbol);
-        self::addStatic($type, $res[self::ATTR_URI]);
-        self::$loadedResources[$type][$symbol] = $res[self::ATTR_URI];
+        self::addStatic($type, $symbol);
+        self::$loadedResources[$type][$symbol] = $res[BriskConfig::ATTR_URI];
         self::delAsync($type, $symbol);
       }
     }
