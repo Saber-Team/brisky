@@ -317,7 +317,7 @@ class BriskPage {
    * @return {string}
    */
   private static function genCssFragment($res) {
-    $code = '';
+    $code = '<!-- brisk render css start -->';
 
     if (!empty($res[BriskConfig::TYPE_CSS])) {
       foreach ($res[BriskConfig::TYPE_CSS] as $symbol) {
@@ -338,6 +338,8 @@ class BriskPage {
       }
       $code .= PHP_EOL . '</style>';
     }
+
+    $code .= '<!-- brisk render css end -->';
 
     return $code;
   }

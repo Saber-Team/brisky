@@ -1,6 +1,6 @@
 <?php
 
-require_once('BriskResourceMap.php');
+require_once('BriskResourceMapFactory.php');
 require_once('BriskConfig.php');
 
 
@@ -276,7 +276,7 @@ class BriskResourceCollector {
   public static function getAsyncResourceMap($arrAsync, $cdn = '') {
     $ret = '';
     $arrResourceMap = array();
-    
+
 //    var_dump(self::$pageStaticResource);
 //    echo '<br>';
 //    echo '<br>';
@@ -413,8 +413,7 @@ class BriskResourceCollector {
 
     // 只支持json文件
     if (is_file($path)) {
-      // register a BriskResourceMap represents resource.json
-      self::$map[$namespace] = new BriskResourceMap($path);
+      self::$map[$namespace] = BriskResourceMapFactory::getInstance($path);
       return true;
     }
 
