@@ -1,0 +1,1 @@
+__d("text.t",function(e,t,o){o.exports="Here is brisk demo!"});

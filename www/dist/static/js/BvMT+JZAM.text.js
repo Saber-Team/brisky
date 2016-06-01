@@ -1,0 +1,1 @@
+__d("UPoCs",function(o,e,s){s.exports="Here is brisk demo!"});

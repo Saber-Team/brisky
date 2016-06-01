@@ -1,0 +1,1 @@
+!function(t){"use strict";var n=this.Quickling={};n.fetch=function(t){var n=new XMLHttpRequest;n.open("GET",t,!0),n.addEventListener("load",function(t){}),n.send(null)},n.onLoad=function(){}}(this);

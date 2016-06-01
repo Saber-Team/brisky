@@ -1,0 +1,97 @@
+{
+    "resource": {
+        "CSS": {
+            "CsP2r": {
+                "uri": "/dist/static/css/M5RLt1wqA.app.css",
+                "type": "CSS",
+                "within": [
+                    "p0"
+                ]
+            },
+            "fHOVQ": {
+                "uri": "/dist/static/async/_pQ5DsVmc.async.css",
+                "type": "CSS"
+            }
+        },
+        "JS": {
+            "hello.t": {
+                "uri": "/dist/static/js/b9ereiFc0.hello.js",
+                "type": "JS",
+                "css": [
+                    "fHOVQ"
+                ]
+            },
+            "app": {
+                "uri": "/dist/static/js/Ychmriy7Q.index.js",
+                "type": "JS",
+                "deps": [
+                    "text.t"
+                ],
+                "asyncLoaded": [
+                    "hello.t"
+                ]
+            },
+            "text.t": {
+                "uri": "/dist/static/js/D6iCVzEiB.text.js",
+                "type": "JS"
+            },
+            "kernel": {
+                "uri": "/dist/static/lib/h6HRpR_Vy.kernel.js",
+                "type": "JS"
+            },
+            "quickling": {
+                "uri": "/dist/static/lib/i+acT3Mhk.quickling.js",
+                "type": "JS"
+            },
+            "+aIF5": {
+                "uri": "/dist/static/js/oFPwCjtvA.detail.js",
+                "type": "JS"
+            },
+            "jNRnq": {
+                "uri": "/template/static/widget/9xiFiEqIZ.aaa.js",
+                "type": "JS",
+                "deps": [
+                    "dvLDm"
+                ]
+            },
+            "dvLDm": {
+                "uri": "/template/static/widget/bySSUHhGq.b.js",
+                "type": "JS"
+            }
+        },
+        "TPL": {
+            "src/widget/detail_content.tpl": {
+                "uri": "/template/widget/detail_content.tpl",
+                "type": "TPL"
+            },
+            "src/widget/index_content.tpl": {
+                "uri": "/template/widget/index_content.tpl",
+                "type": "TPL"
+            },
+            "src/page/detail.tpl": {
+                "uri": "/template/page/detail.tpl",
+                "type": "TPL"
+            },
+            "src/page/footer.tpl": {
+                "uri": "/template/page/footer.tpl",
+                "type": "TPL"
+            },
+            "src/page/header.tpl": {
+                "uri": "/template/page/header.tpl",
+                "type": "TPL"
+            },
+            "src/page/index.tpl": {
+                "uri": "/template/page/index.tpl",
+                "type": "TPL"
+            }
+        }
+    },
+    "pkgs": {
+        "p0": {
+            "uri": "/dist/static/pkg/hHaAL8qQC.pkg.build.css",
+            "has": [
+                "CsP2r"
+            ]
+        }
+    }
+}

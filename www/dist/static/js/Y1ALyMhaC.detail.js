@@ -1,0 +1,1 @@
+kerneljs.exec("+aIF5",function(e,t,o){"use strict";var n=t.exec=function(){alert(1e3)};n()});

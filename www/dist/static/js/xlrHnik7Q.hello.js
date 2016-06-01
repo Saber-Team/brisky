@@ -1,0 +1,1 @@
+__d("hello.t",function(t,e,o){o.exports="Hello AceMood!"});

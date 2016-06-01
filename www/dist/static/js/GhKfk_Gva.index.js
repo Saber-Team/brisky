@@ -1,0 +1,1 @@
+kerneljs.exec("app",function(e,t,n){var o=e("UPoCs");document.getElementById("text").textContent=o,document.getElementById("invoke").addEventListener("click",function(){e.async(["g5IOC"],function(e){alert(e)})},!1)});

@@ -1,0 +1,1 @@
+kerneljs.exec("app",function(t,e,n){var o=t("text.t");document.getElementById("text").textContent=o,document.getElementById("invoke").addEventListener("click",function(){t.async(["hello.t"],function(t){alert(t)})},!1)});
