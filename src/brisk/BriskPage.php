@@ -2,6 +2,7 @@
 
 require_once('BriskResourceCollector.php');
 require_once('BriskConfig.php');
+require_once('BriskUtils.php');
 
 /**
  * Checks a string for UTF-8 encoding.
@@ -65,7 +66,7 @@ function convertToUtf8($string) {
 
 /**
  * Class BriskPage
- * 构造pagelet的html以及所需要的静态资源json
+ * 构造 pagelet 的html以及所需要的静态资源json
  */
 class BriskPage {
 
@@ -79,15 +80,13 @@ class BriskPage {
   private static $cdn;
   private static $title = '';
 
-  /* render mode */
+  // render mode
   private static $mode = null;
 
-  /* default render mode */
+  // default render mode
   private static $defaultMode = null;
 
-  /**
-   * save filters
-   */
+  // save filters
   private static $filter;
 
   private static $context = array();
@@ -146,9 +145,7 @@ class BriskPage {
       self::$defaultMode = self::MODE_NOSCRIPT;
     }
 
-    $isAjax = isset($_SERVER['HTTP_X_REQUESTED_WITH'])
-      && (strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest');
-
+    $isAjax = BriskUtils::isAjax();
     if ($isAjax) {
       self::setMode(self::MODE_QUICKLING);
     } else {
@@ -262,13 +259,53 @@ class BriskPage {
     return self::$cdn;
   }
 
+  // 构建需要打印在页面中的资源表, 这里全部打印
+  protected static function buildResourceMap($map) {
+    $ret = array(
+      BriskConfig::TYPE_CSS => array(),
+      BriskConfig::TYPE_JS => array()
+    );
+    foreach ($map[BriskConfig::TYPE_JS] as $symbol) {
+      if (preg_match('/^p(\d)+$/', $symbol) !== 1) {
+        $js = BriskResourceCollector::getResource(BriskConfig::TYPE_JS, $symbol);
+        $ret[BriskConfig::TYPE_JS][$symbol] = array(
+          BriskConfig::ATTR_URI => self::getCDN() . $js[BriskConfig::ATTR_URI],
+          BriskConfig::ATTR_DEP => $js[BriskConfig::ATTR_DEP],
+          BriskConfig::ATTR_CSS => $js[BriskConfig::ATTR_CSS]
+        );
+      }
+    }
+
+    foreach ($map[BriskConfig::TYPE_CSS] as $symbol) {
+      if (preg_match('/^p(\d)+$/', $symbol) !== 1) {
+        $css = BriskResourceCollector::getResource(BriskConfig::TYPE_CSS, $symbol);
+        $ret[BriskConfig::TYPE_CSS][$symbol] = array(
+          BriskConfig::ATTR_URI => self::getCDN() . $css[BriskConfig::ATTR_URI],
+          BriskConfig::ATTR_DEP => $css[BriskConfig::ATTR_DEP],
+          BriskConfig::ATTR_CSS => $css[BriskConfig::ATTR_CSS]
+        );
+      }
+    }
+
+    return array(
+      BriskConfig::TYPE_JS => array_merge(
+        $ret[BriskConfig::TYPE_JS],
+        $map[BriskConfig::ATTR_ASYNCLOADED][BriskConfig::TYPE_JS]
+      ),
+      BriskConfig::TYPE_CSS => array_merge(
+        $ret[BriskConfig::TYPE_CSS],
+        $map[BriskConfig::ATTR_ASYNCLOADED][BriskConfig::TYPE_CSS]
+      )
+    );
+  }
+
   /**
    * 根据资源表返回页面中的js片段
    * @param {array} $res
    * @return {string}
    */
-  private static function genJsFragment($res) {
-    $resourceMap = $res[BriskConfig::ATTR_ASYNCLOADED];
+  protected static function genJsFragment($res) {
+    $resourceMap = self::buildResourceMap($res);
     $loadModJs = BriskResourceCollector::getFramework();
 
     $code = '<!-- brisk render js start -->';
@@ -316,7 +353,7 @@ class BriskPage {
    * @param {array} $res
    * @return {string}
    */
-  private static function genCssFragment($res) {
+  protected static function genCssFragment($res) {
     $code = '<!-- brisk render css start -->';
 
     if (!empty($res[BriskConfig::TYPE_CSS])) {
@@ -348,10 +385,10 @@ class BriskPage {
    * 将资源渲染到页面替换页面中的占位符
    * @param {string} $html
    * @param {array} $arr
-   * @param {bool} $clean_hook 是否把页面中的占位符清除
+   * @param {bool} $cleanHook 是否把页面中的占位符清除
    * @return mixed
    */
-  private static function renderStatic($html, $arr, $clean_hook = false) {
+  protected static function renderStatic($html, $arr, $cleanHook = false) {
     if (!empty($arr)) {
       $code = self::genJsFragment($arr);
       $html = str_replace(self::JS_HOOK, $code . self::JS_HOOK, $html);
@@ -360,7 +397,7 @@ class BriskPage {
       $html = str_replace(self::CSS_HOOK, $code . self::CSS_HOOK, $html);
     }
 
-    if ($clean_hook) {
+    if ($cleanHook) {
       $html = str_replace(array(self::CSS_HOOK, self::JS_HOOK), '', $html);
     }
 
@@ -372,7 +409,7 @@ class BriskPage {
    * @param {string} $html html页面内容
    * @return mixed
    */
-  private static function insertPageletGroup($html) {
+  protected static function insertPageletGroup($html) {
     // 无widget直接返回
     if (empty(self::$pageletGroup)) {
       return $html;
@@ -458,20 +495,20 @@ class BriskPage {
     $res = array();
 
     // 合并资源
-    foreach (self::$inner_widget[$mode] as $item) {
-      $res = self::mergeResource($res, $item);
+    foreach (self::$inner_widget[$mode] as $widgetResources) {
+      $res = self::mergeResource($res, $widgetResources);
     }
 
     // 为不是普通加载模式的资源添加cdn
-    if ($mode !== self::MODE_NOSCRIPT) {
-      foreach ((array)$res['JS'] as $symbol => $js) {
-        $res['JS'][$symbol]['uri'] = self::getCDN() . $js['uri'];
-      }
-
-      foreach ((array)$res['CSS'] as $symbol => $css) {
-        $res['CSS'][$symbol]['uri'] = self::getCDN() . $css['uri'];
-      }
-    }
+//    if ($mode !== self::MODE_NOSCRIPT) {
+//      foreach ((array)$res['JS'] as $symbol => $js) {
+//        $res['JS'][$symbol]['uri'] = self::getCDN() . $js['uri'];
+//      }
+//
+//      foreach ((array)$res['CSS'] as $symbol => $css) {
+//        $res['CSS'][$symbol]['uri'] = self::getCDN() . $css['uri'];
+//      }
+//    }
 
     // tpl信息没有必要打到页面
     switch($mode) {
@@ -484,7 +521,32 @@ class BriskPage {
       case self::MODE_QUICKLING:
         // 返回json
         header('Content-Type: text/json; charset=utf-8');
-        $res = self::mergeResource($res, BriskResourceCollector::getPageStaticResource());
+        $all_static = BriskResourceCollector::getPageStaticResource();
+        $res = self::mergeResource($all_static, $res);
+
+        foreach ($res[BriskConfig::TYPE_JS] as $index => $symbol) {
+          if (preg_match('/^p(\d)+$/', $symbol) === 1) {
+            $js = BriskResourceCollector::getPackage($symbol);
+          } else {
+            $js = BriskResourceCollector::getResource(BriskConfig::TYPE_JS, $symbol);
+          }
+
+          $js['uri'] = self::getCDN() . $js['uri'];
+          $js['id'] = $symbol;
+          $res[BriskConfig::TYPE_JS][$index] = $js;
+        }
+
+        foreach ($res[BriskConfig::TYPE_CSS] as $index => $symbol) {
+          if (preg_match('/^p(\d)+$/', $symbol) === 1) {
+            $css = BriskResourceCollector::getPackage($symbol);
+          } else {
+            $css = BriskResourceCollector::getResource(BriskConfig::TYPE_CSS, $symbol);
+          }
+
+          $css['uri'] = self::getCDN() . $css['uri'];
+          $css['id'] = $symbol;
+          $res[BriskConfig::TYPE_CSS][$index] = $css;
+        }
 
         if ($res['script']) {
           $res['script'] = convertToUtf8(implode("\n", $res['script']));
@@ -569,8 +631,8 @@ class BriskPage {
 
   /**
    * WIDGET START
-   * 解析参数，收集widget所用到的静态资源
-   * @param {string} $id pagelet id
+   * 解析参数, 收集widget所用到的静态资源
+   * @param {string} $id 分片id
    * @param {?string} $mode
    * @param {string} $group
    * @return {bool}
@@ -584,25 +646,24 @@ class BriskPage {
       $widgetMode = self::$mode;
     }
     
-    // 记录当前 pagelet id
+    // 记录当前分片id
     self::$pageletId = $id;
 
-    $parent_id = $hasParent ? self::$context['id'] : '';
-    $qk_flag = (self::$mode == self::MODE_QUICKLING ? '_qk_' : '');
+    $parentId = $hasParent ? self::$context['id'] : '';
+    $qk_flag = (self::$mode === self::MODE_QUICKLING ? '_qk_' : '');
 
     //
-    $id = empty($id) ? '__elm_' . $parent_id . '_' . $qk_flag . self::$_session_id ++ : $id;
+    $id = empty($id) ? '__elm_' . $parentId . '_' . $qk_flag . self::$_session_id ++ : $id;
 
 
     $parent = self::$context;
     $hasParent = !empty($parent);
 
     $hit = true;
-
     $context = array(
-      'id' => $id,            //widget id
-      'mode' => $widgetMode, //当前widget的mode
-      'hit' => $hit          // 是否命中
+      'id' => $id,            // widget id
+      'mode' => $widgetMode,  // 当前widget的mode
+      'hit' => $hit           // 是否命中
     );
 
     if ($hasParent) {
@@ -638,7 +699,7 @@ class BriskPage {
         }
       } else if ($widgetMode === self::MODE_QUICKLING) {
         // 渲染模式不是quickling时，可以认为是首次渲染
-        if (self::$pageletId && self::$mode != self::MODE_QUICKLING) {
+        if (self::$pageletId && self::$mode !== self::MODE_QUICKLING) {
           if (!$group) {
             echo '<textarea class="g_bigrender" style="display:none;">'
               .'BigPipe.asyncLoad({id: "'.$id.'"});'
@@ -676,7 +737,7 @@ class BriskPage {
 
   /**
    * WIDGET END
-   * 收集html，收集静态资源
+   * 收集html, 收集静态资源
    */
   public static function widgetEnd($id = null) {
     $ret = true;
@@ -700,7 +761,7 @@ class BriskPage {
         if (!$hasParent) {
           $widget = BriskResourceCollector::widgetEnd();
           // end
-          if ($widgetMode == self::MODE_BIGRENDER) {
+          if ($widgetMode === self::MODE_BIGRENDER) {
             $widget_style = $widget['style'];
             $widget_script = $widget['script'];
             // 内联css和script放到注释里面, 不需要收集
@@ -721,8 +782,6 @@ class BriskPage {
               array('\\\\', '--\\>'),
               $out
             );
-
-            $html = '';
 
             echo '--></code></div>';
 
@@ -754,7 +813,7 @@ class BriskPage {
       }
 
       if ($widgetMode !== self::MODE_BIGRENDER) {
-        echo '! MODE_BIGRENDER';
+        //echo '! MODE_BIGRENDER';
         echo '</div>';
       }
     }

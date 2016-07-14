@@ -104,7 +104,6 @@ class BriskResourceCollector {
   public static function widgetStart() {
     self::$isInWidget = true;
 
-    // clear all widget relative variables
     self::$widgetStaticResource = array();
     self::$widgetRequireAsync = array();
     self::$widgetScriptPool = array();
@@ -130,8 +129,8 @@ class BriskResourceCollector {
       $ret[BriskConfig::ATTR_ASYNCLOADED] = self::getAsyncResourceMap(self::$widgetRequireAsync);
     }
 
-    foreach (self::$widgetStaticResource as $type => $val) {
-      foreach ($val as $symbol => $info) {
+    foreach (self::$widgetStaticResource as $type => $symbols) {
+      foreach ($symbols as $symbol) {
         unset(self::$loadedResources[$type][$symbol]);
         unset(self::$asyncDeleted[$type][$symbol]);
       }
@@ -276,15 +275,7 @@ class BriskResourceCollector {
   public static function getAsyncResourceMap($arrAsync, $cdn = '') {
     $ret = '';
     $arrResourceMap = array();
-
-//    var_dump(self::$pageStaticResource);
-//    echo '<br>';
-//    echo '<br>';
-//
-//    var_dump($arrAsync);
-//    echo '<br>';
-
-
+    
     // js结构
     if (isset($arrAsync[BriskConfig::TYPE_JS])) {
       foreach ($arrAsync[BriskConfig::TYPE_JS] as $id => $res) {
@@ -344,10 +335,10 @@ class BriskResourceCollector {
         }
 
         $arrResourceMap[BriskConfig::TYPE_JS][$id] = array(
-          'uri' => $cdn . $res[BriskConfig::ATTR_URI]
+          BriskConfig::ATTR_URI => $cdn . $res[BriskConfig::ATTR_URI],
+          BriskConfig::ATTR_DEP => $deps,
+          BriskConfig::ATTR_CSS => $css
         );
-        $arrResourceMap[BriskConfig::TYPE_JS][$id][BriskConfig::ATTR_DEP] = $deps;
-        $arrResourceMap[BriskConfig::TYPE_JS][$id][BriskConfig::ATTR_CSS] = $css;
       }
     }
 
@@ -382,9 +373,9 @@ class BriskResourceCollector {
         }
 
         $arrResourceMap[BriskConfig::TYPE_CSS][$symbol] = array(
-          'uri' => $cdn . $res[BriskConfig::ATTR_URI],
+          BriskConfig::ATTR_URI => $cdn . $res[BriskConfig::ATTR_URI],
+          BriskConfig::ATTR_CSS => $css
         );
-        $arrResourceMap[BriskConfig::TYPE_CSS][$symbol][BriskConfig::ATTR_CSS] = $css;
       }
     }
 
